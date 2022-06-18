@@ -7,16 +7,87 @@ warnings.filterwarnings("ignore")
 
 
 KERNEL = {
-    'laplacian': np.array([[1, 1, 1],
-                           [1, -8, 1],
-                           [1, 1, 1]]),
-    'horizontal': np.array([[-1, -1, -1],
-                            [2, 2, 2],
-                            [-1, -1, -1]]),
-    '45degree': np.array([[2, -1, -1],
-                         [-1, 2, -1],
-                         [-1, -1, 2]])
+    'laplacian': np.array([[0, 1, 0],
+                           [1, -4, 1],
+                           [0, 1, 0]]),
 
+    'rotate': {
+                'horizontal': np.array([[-1, -1, -1],
+                                        [2, 2, 2],
+                                        [-1, -1, -1]]),
+                '45degree' : np.array([[2, -1, -1],
+                                       [-1, 2, -1],
+                                       [-1, -1, 2]]),
+                'vertical' : np.array([[-1, 2, -1],
+                                       [-1, 2, -1],
+                                       [-1, 2, -1]]),
+                '315degree' : np.array([[-1, -1, 2],
+                                        [-1, 2, -1],
+                                        [2, -1, -1]])
+    },
+
+    #Kernel filter using in edge detection
+
+    'grad' : {
+        'left' : np.array([[-1, 0],
+                           [1, 0]]),
+        'right' : np.array([[-1, 1],
+                            [0, 0]])
+    },
+
+    'roberts' : {
+        'left': np.array([[-1, 0],
+                          [0, 1]]),
+        'right': np.array([[0, -1],
+                           [1, 0]])
+    },
+
+
+    'prewitt' : {
+        'left' : np.array([[-1, -1, -1],
+                           [0, 0, 0],
+                           [1, 1, 1]]),
+        'right' : np.array([[-1, 0, 1],
+                            [-1, 0, 1],
+                            [-1, 0, 1]])
+    },
+
+    'sobel' : {
+        'left' : np.array([[-1, -2, -1],
+                           [0, 0, 0],
+                           [1, 2, 1]]),
+        'right' : np.array([[-1, 0, 1],
+                            [-2, 0, 2],
+                            [-1, 0, 1]])
+    },
+
+
+    'kirish': {
+        'N' : np.array([[-3, -3, 5],
+                        [-3, 0, 5],
+                        [-3, -3, 5]]),
+        'NW' : np.array([[-3, 5, 5],
+                         [-3, 0, 5],
+                         [-3, -3, -3]]),
+        'W' : np.array([[5, 5, 5],
+                        [-3, 0, -3],
+                        [-3, -3, -3]]),
+        'SW' : np.array([[5, 5, -3],
+                         [5, 0, -3],
+                         [-3, -3, -3]]),
+        'S' : np.array([[5, -3, -3],
+                        [5, 0, -3],
+                        [5, -3, -3]]),
+        'SE' : np.array([[-3, -3, -3],
+                         [5, 0, -3],
+                         [5, 5, -3]]),
+        'E' : np.array([[-3, -3, -3],
+                        [-3, 0, -3],
+                        [5, 5, 5]]),
+        'NE' : np.array([[-3, -3, -3],
+                         [-3, 0, 5],
+                         [-3, 5, 5]])
+    }
 }
 
 
@@ -96,49 +167,100 @@ def multiplot(plot_name: str, images: dict) -> None:
 
 
 class convolution2d():
-    def __init__(self, img, kernel, padding='zero'):
+    """
+        This class contains convolution method in 2D-array
+        Args:
+            img (np.array) : 2D-array
+            kernel (str or np.array): a kernel filter using in convolution (etc: Laplacian, Roberts,.. or yours)
+
+        Method:
+            convolution
+    """
+
+    def __init__(self, img):
+        self.img = img
+        self.h, self.w = img.shape
+
+
+    """
+        This function use of convolve 2D-array with a kernel filter
+    """
+
+    def convolution(self, kernel, padding=0, strides=1):
+        # Cross Correlation
+        kernel = np.flipud(np.fliplr(kernel))
+
+        # Gather Shapes of Kernel + Image + Padding
+        xKernShape = kernel.shape[0]
+        yKernShape = kernel.shape[1]
+        xImgShape = self.img.shape[0]
+        yImgShape = self.img.shape[1]
+
+        # Shape of Output Convolution
+        xOutput = int(((xImgShape - xKernShape + 2 * padding) / strides) + 1)
+        yOutput = int(((yImgShape - yKernShape + 2 * padding) / strides) + 1)
+        output = np.zeros((xOutput, yOutput))
+
+        # Apply Equal Padding to All Sides
+        if padding != 0:
+            imagePadded = np.zeros((self.img.shape[0] + padding * 2, self.img.shape[1] + padding * 2))
+            imagePadded[int(padding):int(-1 * padding), int(padding):int(-1 * padding)] = self.img
+            print(imagePadded)
+        else:
+            imagePadded = self.img
+
+        # Iterate through image
+        for y in range(self.img.shape[1]):
+            # Exit Convolution
+            if y > self.img.shape[1] - yKernShape:
+                break
+            # Only Convolve if y has gone down by the specified Strides
+            if y % strides == 0:
+                for x in range(self.img.shape[0]):
+                    # Go to next row once kernel is out of bounds
+                    if x > self.img.shape[0] - xKernShape:
+                        break
+                    try:
+                        # Only Convolve if x has moved by the specified Strides
+                        if x % strides == 0:
+                            output[x, y] = (kernel * imagePadded[x: x + xKernShape, y: y + yKernShape]).sum()
+                    except:
+                        break
+
+        return output
+
+
+class smooth_threshold():
+    def __init__(self, img):
         self.img = img
 
-        self.m, self.n = kernel.shape
-
-        if self.m != self.n:
-            raise ValueError(f'kernel size must be square inseat')
-        self.kernel = kernel
-        self.padding = padding
-
-    def pad_img(self, pad_size=2):
+    def smooth(self, kernel_size, smooth_type):
         h, w = self.img.shape
 
-        if (pad_size not in [2, 4]):
-            raise ValueError(
-                f'padding size must be 2 or 4 instead of {pad_size}')
+        h = h - kernel_size + 1
+        w = w - kernel_size + 1
 
-        bounding_len = pad_size // 2
-        img_pad = np.zeros((h + pad_size, w + 2))
-        img_pad[bounding_len: h + bounding_len,
-                bounding_len: w + bounding_len] = self.img
+        out_img = np.zeros((h, w))
 
-        if self.padding == 'nn':
-            img_pad[0, :] = img_pad[1, :]
-            img_pad[-1, :] = img_pad[-2, :]
-            img_pad[:, 0] = img_pad[:, 1]
-            img_pad[:, -1] = img_pad[:, -2]
-
-        self.h, self.w = h, w
-        self.bounding_len = bounding_len
-
-        return img_pad
-
-    def convolution(self):
-
-        img_pad = self.pad_img()
-
-        h = self.h - self.m + self.bounding_len
-        w = self.w - self.m + self.bounding_len
-        new_image = np.zeros((h, w))
         for i in range(h):
             for j in range(w):
-                new_image[i][j] = np.sum(
-                    img_pad[i:i + self.m, j:j + self.m] * self.kernel)
+                out_img[i][j] = np.mean(self.img[i:i+kernel_size,j:j+kernel_size])
 
-        return new_image
+        return out_img
+
+
+    """
+        This function return a binary image get by thresholded the input image
+    """
+    def threshold(self, arr, thresh=0.33):
+        h, w = arr.shape
+
+        out_img = np.zeros_like(arr)
+
+        T = thresh * np.max(arr)
+
+        for i in range(h):
+            for j in range(w):
+                out_img[i][j] = 0 if arr[i][j] < T else 1
+
+        return out_img
