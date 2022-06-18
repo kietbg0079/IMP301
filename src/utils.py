@@ -205,7 +205,6 @@ class convolution2d():
         if padding != 0:
             imagePadded = np.zeros((self.img.shape[0] + padding * 2, self.img.shape[1] + padding * 2))
             imagePadded[int(padding):int(-1 * padding), int(padding):int(-1 * padding)] = self.img
-            print(imagePadded)
         else:
             imagePadded = self.img
 
@@ -250,7 +249,7 @@ class smooth_threshold():
 
 
     """
-        This function return a binary image get by thresholded the input image
+        This function return a binary image get by threshold the input image
     """
     def threshold(self, arr, thresh=0.33):
         h, w = arr.shape
@@ -261,6 +260,6 @@ class smooth_threshold():
 
         for i in range(h):
             for j in range(w):
-                out_img[i][j] = 0 if arr[i][j] < T else 1
+                out_img[i][j] = 0 if arr[i][j] < T else 255
 
         return out_img

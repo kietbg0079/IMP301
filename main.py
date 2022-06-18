@@ -1,9 +1,9 @@
-from src.filter import edge_based
+from src.filter import *
 from src.utils import *
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -11,13 +11,16 @@ if __name__ == "__main__":
 
     img = cv2.imread('data/10.2/img4.png', 0)
 
-    st = smooth_threshold(img)
+    mh = marr_hildreth(img)
 
-    smooth_img = st.smooth(5, "median")
-    edge = edge_based(smooth_img)
+    # gaus_fil = mh.gaus_dis()
+    #
+    # conv_img = convolution2d(img).convolution(gaus_fil)
+    #
+    # lapla = convolution2d(conv_img).convolution(KERNEL['laplacian'])
+    #
+    # zec = smooth_threshold(img).threshold(lapla, 0.04)
 
-    edge_img = edge.edge_detection('sobel')
+    multiplot("Marr and Hildreth", {"origin" : img, "dog" : mh.DoG(2, 4, 1, 5)})
 
-    thresh_img = st.threshold(edge_img)
 
-    multiplot("sboel_kernel_with_smooth", images={"origin_rgb": img, "smooth": smooth_img,"edge_img" : edge_img, "thresh_img" : thresh_img})
