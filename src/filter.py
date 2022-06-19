@@ -254,3 +254,95 @@ class region_growing:
                     processed.append(coord)
                 seed_points.pop(0)
         return outimg
+
+
+class Split_Merge_Segmented:
+    def __init__(self, img):
+        self.img = img
+
+    # split
+    def Split_Judge(self, h0, w0, h, w):
+        """This function will consider if region is splittable
+
+        Args:
+            h0 (int): starting point of region to check (y-coordinate)
+            w0 (int): starting point of region to check (x-coordinate)
+            h (int): height of region to check
+            w (int): width of region to check
+
+        Returns:
+            bool:   True if region can still be splitted
+                    False if region can not be splitted anymore
+        """
+        area = self.img[h0: h0 + h, w0: w0 + w]
+        mean = np.mean(area)
+        std = np.std(area, ddof=1)
+
+        total_points = 0
+        operated_points = 0
+
+        for row in range(area.shape[0]):
+            for col in range(area.shape[1]):
+                if (area[row][col] - mean) < 2 * std:
+                    operated_points += 1
+                total_points += 1
+
+        if operated_points / total_points >= 0.95:
+            return True
+        else:
+            return False
+
+    def Merge(self, h0, w0, h, w):
+        """This function merges regions together
+
+        Args:
+            h0 (int): starting point of region to merge (y-coordinate)
+            w0 (int): starting point of region to merge (x-coordinate)
+            h (int): height of region to merge
+            w (int): width of region to merge
+        """
+        img = self.img
+        for row in range(h0, h0 + h):
+            for col in range(w0, w0 + w):
+                if img[row, col] > 100 and img[row, col] < 200:
+                    img[row, col] = 0
+                else:
+                    img[row, col] = 255
+
+    def Recursion(self, h0, w0, h, w):
+        """This function continually split region until stopping condition are met
+
+        Args:
+            h0 (int): starting point of region to consider (y-coordinate)
+            w0 (int): starting point of region to consider (x-coordinate)
+            h (int): height of region to consider
+            w (int): width of region to consider
+        """
+        if not self.Split_Judge(h0, w0, h, w) and min(h, w) > 5:
+            # Recursion continues to determine whether it can continue to split
+            # Top left square
+            self.Recursion(h0, w0, int(h0 / 2), int(w0 / 2))
+            # Upper right square
+            self.Recursion(h0, w0 + int(w0 / 2), int(h0 / 2), int(w0 / 2))
+            # Lower left square
+            self.Recursion(h0 + int(h0 / 2), w0, int(h0 / 2), int(w0 / 2))
+            # Lower right square
+            self.Recursion(h0 + int(h0 / 2), w0 + int(w0 / 2),
+                           int(h0 / 2), int(w0 / 2))
+        else:
+            # Merge
+            self.Merge(h0, w0, h, w)
+
+    def segment(self):
+        """This function will perform region splitting and region merging segmentation method and show
+        """
+        origin = self.img.copy()
+        img_gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+        # hist, bins = np.histogram(img_gray, bins=256)
+
+        segemented_img = img_gray.copy()
+        self.img = segemented_img
+        self.Recursion(0, 0, segemented_img.shape[0], segemented_img.shape[1])
+
+        multiplot("Split and merge segmentation", {
+                  'input image': origin, "input gray": img_gray, "segmented image": segemented_img})
