@@ -145,7 +145,7 @@ def multiplot(plot_name: str, images: dict) -> None:
     else:
         nrow = 1
         ncol = no_images
-    figsize = (3*ncol, 3*nrow + 2)
+    figsize = (3*ncol, 3*nrow+1)
     plt.figure(figsize=figsize)
     plt.suptitle(f'{plot_name}')
 
@@ -153,6 +153,7 @@ def multiplot(plot_name: str, images: dict) -> None:
     for title, image in images.items():
         plt.subplot(nrow, ncol, list(images.keys()).index(title) + 1)
         plt.title(f"{title}")
+        plt.axis('off')
 
         if len(image.shape) == 2:
             display_GRAY(image)
@@ -163,6 +164,7 @@ def multiplot(plot_name: str, images: dict) -> None:
                 display_GRAY(image)
             else:
                 display_RGB(image)
+    plt.tight_layout()
     plt.show()
 
 
