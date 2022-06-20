@@ -1,7 +1,7 @@
 import cv2
 from .utils import *
 import numpy as np
-import scipy.ndimage
+
 
 
 class edge_based(convolution2d):
@@ -73,8 +73,7 @@ class edge_based(convolution2d):
         edge_img = np.zeros_like(img_left)
         for i in range(a):
             for j in range(b):
-                edge_img[i][j] = np.abs(
-                    img_left[i][j]) + np.abs(img_right[i][j])
+                edge_img[i][j] = np.abs(img_left[i][j]) + np.abs(img_right[i][j])
 
         return edge_img
 
@@ -95,8 +94,7 @@ class marr_hildreth():
 
     def gaus_dis(self, std=4):
 
-        #kernel_size = 6*std if (6*std) % 2 == 1 else 6*std+1
-        kernel_size = 29
+        kernel_size = 6*std if (6*std) % 2 == 1 else 6*std+1
         gaus_kernel = np.zeros((kernel_size, kernel_size))
 
         for i in range(kernel_size):
@@ -144,6 +142,101 @@ class marr_hildreth():
                     out_img[i][j] = 0
 
         return out_img
+
+class canny(marr_hildreth):
+    """
+        Image Segmentation using Canny edge detector. It is a multi-step algorithm, its first steps
+        much the same as marr hildreth algorithm: calculate Noise reduction then find the magnitude
+        of its. Then it applies non-max supression to the magntide. Finally algorithm uses double
+        threshold follow by conectivity analysis
+
+        Args:
+            Tl: Low threshold
+            Th: High threshold
+            std: Standard deviation of Gaussian filter
+
+        Return:
+            np.array : Image with linked edges
+    """
+    def __init__(self, img):
+        super().__init__(img)
+        self.img = img
+
+    def canny(self, Tl, Th, std=4):
+        G = self.gaus_dis(std)
+
+        f = convolution2d(self.img).convolution(G)
+
+        gx = convolution2d(f).convolution(KERNEL["sobel"]['left'])
+        gy = convolution2d(f).convolution(KERNEL["sobel"]['right'])
+
+        mag = np.sqrt(np.power(gx, 2) + np.power(gy, 2))
+
+        arctan = np.arctan2(gy, gx)
+        M, N = arctan.shape
+
+        K = np.zeros((M, N))
+
+        for i in range(1, M-1):
+            for j in range(1, N-1):
+                try:
+                    q = 255
+                    r = 255
+
+                    deg = np.degrees(arctan[i][j])
+                    if (0 <= deg < 22.5) or (157.5 <= deg <= 180):
+                        q = mag[i, j + 1]
+                        r = mag[i, j - 1]
+                    elif (22.5 <= deg < 67.5):
+                        q = mag[i + 1, j - 1]
+                        r = mag[i - 1, j + 1]
+                    elif (67.5 <= deg < 112.5):
+                        q = mag[i + 1, j]
+                        r = mag[i - 1, j]
+                    elif (112.5 <= deg < 157.5):
+                        q = mag[i - 1, j - 1]
+                        r = mag[i + 1, j + 1]
+
+                    if (mag[i, j] >= q) and (mag[i, j] >= r):
+                        K[i, j] = mag[i, j]
+                    else:
+                        K[i, j] = 0
+
+                except IndexError as e:
+                    pass
+
+        Th = K.max() * Th
+        Tl = Tl * Th
+
+        res = np.zeros((M, N), dtype=np.int32)
+
+        weak = np.int32(30)
+        strong = np.int32(255)
+
+        strong_i, strong_j = np.where(K >= Th)
+        zeros_i, zeros_j = np.where(K < Tl)
+
+        weak_i, weak_j = np.where((K <= Th) & (K >= Tl))
+
+        res[strong_i, strong_j] = strong
+        res[weak_i, weak_j] = weak
+
+        for i in range(1, M - 1):
+            for j in range(1, N - 1):
+                if (res[i, j] == weak):
+                    try:
+                        if ((res[i + 1, j - 1] == strong) or (res[i + 1, j] == strong) or (res[i + 1, j + 1] == strong)
+                                or (res[i, j - 1] == strong) or (res[i, j + 1] == strong)
+                                or (res[i - 1, j - 1] == strong) or (res[i - 1, j] == strong) or (
+                                        res[i - 1, j + 1] == strong)):
+                            res[i, j] = strong
+                        else:
+                            res[i, j] = 0
+                    except IndexError as e:
+                        pass
+
+        return res
+
 
 
 class region_growing:

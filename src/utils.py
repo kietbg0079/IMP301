@@ -235,7 +235,7 @@ class smooth_threshold():
     def __init__(self, img):
         self.img = img
 
-    def smooth(self, kernel_size, smooth_type):
+    def smooth(self, kernel_size):
         h, w = self.img.shape
 
         h = h - kernel_size + 1

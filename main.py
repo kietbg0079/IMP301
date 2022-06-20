@@ -6,15 +6,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+np.set_printoptions(suppress=True)
 
 if __name__ == "__main__":
 
-    img = cv2.imread('data/10.2/test.jpg')
+    img = cv2.imread('data/10.2/img5.png', 0)
 
-    morp = morphological(img)
+    can = canny(img)
 
-    out_img = morp.morphol()
+    mag, arctan, K, strong, res = can.canny(0.05, 0.15)
 
-    multiplot("Marr and Hildreth", {"origin" : img, "morphological" : out_img})
 
+    multiplot("canny_edge", {"origin": img, "magnitude": mag, "angle": arctan, "nonmax_supression": K, "result": res})
 
