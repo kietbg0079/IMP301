@@ -332,7 +332,18 @@ class region_growing:
         print(centroid.shape)
         return np.round(centroid).astype(int), percentile_value
 
-    def region_growing(self, seeds=None, seed_value=255, T1=68, T2=126):
+    def region_growing(self, seeds=None, seed_value=255, T1=68, T2=126) -> np.array:
+        """This function performs region-grwoing algorithm
+
+        Args:
+            seeds (list, optional): List of seeds to start the algortihm. Defaults to None.
+            seed_value (int, optional): value will be assign to region grown from seeds. Defaults to 255.
+            T1 (int, optional): threshold 1. Defaults to 68.
+            T2 (int, optional): threshold 2. Defaults to 126.
+
+        Returns:
+            np.array: output image
+        """
         if seeds is None:
             seeds, seed_value = self.getSeeds(self.img, 99)
 
@@ -452,6 +463,11 @@ class SLIC:
         self.img = img
 
     def slic(self, num_segments: int):
+        """This function performs SLIC algorithm
+
+        Args:
+            num_segments (int): numeber of segment regions
+        """
         image = img_as_float(self.img)
         segments = slic(image, n_segments=num_segments,
                         compactness=10, sigma=1)
@@ -465,6 +481,12 @@ class Clustering:
         self.img = img
 
     def kmeans(self, k: int, attempts: int):
+        """This funtion performs image segmentation based on k-means clustering
+
+        Args:
+            k (int): number of clusters
+            attempts (int): number of iteration for kmeans
+        """
         img = cv2.cvtColor(self.img,cv2.COLOR_BGR2RGB)
         vectorized = self.img.reshape((-1, 3))
         vectorized = np.float32(vectorized)
