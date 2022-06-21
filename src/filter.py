@@ -1,7 +1,11 @@
 import cv2
 from .utils import *
 import numpy as np
-
+from skimage.segmentation import slic
+from skimage.segmentation import mark_boundaries
+from skimage.color import label2rgb
+from skimage.util import img_as_float
+from skimage import io
 
 
 class edge_based(convolution2d):
@@ -73,7 +77,8 @@ class edge_based(convolution2d):
         edge_img = np.zeros_like(img_left)
         for i in range(a):
             for j in range(b):
-                edge_img[i][j] = np.abs(img_left[i][j]) + np.abs(img_right[i][j])
+                edge_img[i][j] = np.abs(
+                    img_left[i][j]) + np.abs(img_right[i][j])
 
         return edge_img
 
@@ -143,6 +148,7 @@ class marr_hildreth():
 
         return out_img
 
+
 class canny(marr_hildreth):
     """
         Image Segmentation using Canny edge detector. It is a multi-step algorithm, its first steps
@@ -158,6 +164,7 @@ class canny(marr_hildreth):
         Return:
             np.array : Image with linked edges
     """
+
     def __init__(self, img):
         super().__init__(img)
         self.img = img
@@ -228,7 +235,7 @@ class canny(marr_hildreth):
                         if ((res[i + 1, j - 1] == strong) or (res[i + 1, j] == strong) or (res[i + 1, j + 1] == strong)
                                 or (res[i, j - 1] == strong) or (res[i, j + 1] == strong)
                                 or (res[i - 1, j - 1] == strong) or (res[i - 1, j] == strong) or (
-                                        res[i - 1, j + 1] == strong)):
+                                res[i - 1, j + 1] == strong)):
                             res[i, j] = strong
                         else:
                             res[i, j] = 0
@@ -236,7 +243,6 @@ class canny(marr_hildreth):
                         pass
 
         return res
-
 
 
 class region_growing:
@@ -441,9 +447,35 @@ class Split_Merge_Segmented:
                   'input image': origin, "input gray": img_gray, "segmented image": segemented_img})
 
 
+class SLIC:
+    def __init__(self, img: np.array):
+        self.img = img
+
+    def slic(self, num_segments: int):
+        image = img_as_float(self.img)
+        segments = slic(image, n_segments=num_segments,
+                        compactness=10, sigma=1)
+        superpixels = label2rgb(segments, image, kind='avg')
+        multiplot("SLIC algorithm", {"Origin": self.img, "Superpixels with boundaries": mark_boundaries(
+            image, segments).astype(np.float32), "Segmented image": superpixels.astype(np.float32)})
 
 
+class Clustering:
+    def __init__(self, img: np.array):
+        self.img = img
 
+    def kmeans(self, k: int, attempts: int):
+        img = cv2.cvtColor(self.img,cv2.COLOR_BGR2RGB)
+        vectorized = self.img.reshape((-1, 3))
+        vectorized = np.float32(vectorized)
+        criteria = (cv2.TERM_CRITERIA_EPS +
+                    cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        ret, label, center = cv2.kmeans(
+            vectorized, k, None, criteria, attempts, cv2.KMEANS_PP_CENTERS)
+        center = np.uint8(center)
+        res = center[label.flatten()]
+        result_image = res.reshape((self.img.shape))
+        multiplot("Segmentation with K-means clustering",{"Origin":self.img,f"K-means with k={k}":result_image})
 
 
 class morphological():
@@ -455,26 +487,29 @@ class morphological():
         Returns:
             image : with the object surrounded by a boundary
     """
+
     def __init__(self, img):
         self.img = img
 
-
     def morphol(self):
 
-        gray = cv2.cvtColor(self.img,cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
 
-        ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        ret, thresh = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
         # noise removal
         kernel = np.ones((3, 3), np.uint8)
-        closing = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+        closing = cv2.morphologyEx(
+            thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
 
         # background area
         sure_bg = cv2.dilate(closing, kernel, iterations=1)
 
         # Finding foreground area
         dist_transform = cv2.distanceTransform(closing, cv2.DIST_L2, 5)
-        ret, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
+        ret, sure_fg = cv2.threshold(
+            dist_transform, 0.7 * dist_transform.max(), 255, 0)
 
         # Finding unknown region
         sure_fg = np.uint8(sure_fg)

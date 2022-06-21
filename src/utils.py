@@ -165,7 +165,7 @@ def multiplot(plot_name: str, images: dict) -> None:
             else:
                 display_RGB(image)
     plt.tight_layout()
-    plt.show()
+    plt.show();
 
 
 class convolution2d():
