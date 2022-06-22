@@ -25,7 +25,7 @@ class edge_based(convolution2d):
             kernel (str or np.array): a kernel filter
     """
 
-    def isolated_point(self, T_threshold):
+    def isolated_point(self, T_threshold=0.8):
 
         img_filter = self.convolution(KERNEL['laplacian'])
 
@@ -83,7 +83,7 @@ class edge_based(convolution2d):
         return edge_img
 
 
-class marr_hildreth():
+class Marr_hildreth():
     def __init__(self, img):
         self.img = img
 
@@ -97,9 +97,11 @@ class marr_hildreth():
             np.array : with size 6*std x 6*std   
     """
 
-    def gaus_dis(self, std=4):
-
-        kernel_size = 6*std if (6*std) % 2 == 1 else 6*std+1
+    def gaus_dis(self, std=4, dog=False):
+        if dog:
+            kernel_size = 25
+        else:
+            kernel_size = 6 * std if (6 * std) % 2 == 1 else 6 * std + 1
         gaus_kernel = np.zeros((kernel_size, kernel_size))
 
         for i in range(kernel_size):
@@ -108,6 +110,35 @@ class marr_hildreth():
 
         return gaus_kernel
 
+    def LoG(self, std=4):
+        kernel_size = 6 * std if (6 * std) % 2 == 1 else 6 * std + 1
+
+        gaus_laplacian = np.zeros((kernel_size, kernel_size))
+
+        for i in range(kernel_size):
+            for j in range(kernel_size):
+                gaus_laplacian[i][j] = ((i**2 + j**2 - 2*std**2) / std ** 4) * np.exp(-(i**2 + j**2) / (2*std**2))
+
+
+        g = convolution2d(self.img).convolution(gaus_laplacian, padding=1)
+
+        g = g.astype("int64")
+        zero_crossing = np.zeros_like(g)
+
+        m, n = g.shape
+        # computing zero crossing
+        for i in range(m - (kernel_size - 1)):
+            for j in range(n - (kernel_size - 1)):
+                if g[i][j] == 0:
+                    if (g[i][j - 1] < 0 and g[i][j + 1] > 0) or (g[i][j - 1] < 0 and g[i][j + 1] < 0) or (
+                            g[i - 1][j] < 0 and g[i + 1][j] > 0) or (g[i - 1][j] > 0 and g[i + 1][j] < 0):
+                        zero_crossing[i][j] = 255
+                if g[i][j] < 0:
+                    if (g[i][j - 1] > 0) or (g[i][j + 1] > 0) or (g[i - 1][j] > 0) or (g[i + 1][j] > 0):
+                        zero_crossing[i][j] = 255
+
+
+        return zero_crossing
     """
         This function use of calculating the different of Gaussian with 
         std_a and std_b use for calculating DoG image scale x, std_c and 
@@ -123,13 +154,13 @@ class marr_hildreth():
     """
 
     def DoG(self, std_a, std_b, std_c, std_d):
-        img_a = convolution2d(self.img).convolution(self.gaus_dis(std_a))
-        img_b = convolution2d(self.img).convolution(self.gaus_dis(std_b))
+        img_a = convolution2d(self.img).convolution(self.gaus_dis(std_a, True))
+        img_b = convolution2d(self.img).convolution(self.gaus_dis(std_b, True))
 
         dog_img_x = img_a - img_b
 
-        img_c = convolution2d(self.img).convolution(self.gaus_dis(std_c))
-        img_d = convolution2d(self.img).convolution(self.gaus_dis(std_d))
+        img_c = convolution2d(self.img).convolution(self.gaus_dis(std_c, True))
+        img_d = convolution2d(self.img).convolution(self.gaus_dis(std_d, True))
 
         dog_img_y = img_c - img_d
 
@@ -149,7 +180,7 @@ class marr_hildreth():
         return out_img
 
 
-class canny(marr_hildreth):
+class Canny(Marr_hildreth):
     """
         Image Segmentation using Canny edge detector. It is a multi-step algorithm, its first steps
         much the same as marr hildreth algorithm: calculate Noise reduction then find the magnitude
@@ -243,6 +274,63 @@ class canny(marr_hildreth):
                         pass
 
         return res
+
+
+
+class Thresholding():
+
+    """
+        This class contain otsu thresholding method
+    """
+    def __init__(self, img):
+        self.img = img
+
+    def thresh(self, T):
+        ret, thresh = cv2.threshold(self.img, T, 255, cv2.THRESH_BINARY)
+        return thresh
+
+    def threshold_otsu_implement(self, nbins=0.1):
+
+        image = self.img
+        # validate grayscale
+        if len(image.shape) == 1 or len(image.shape) > 2:
+            print("Must be a grayscale image.")
+            return
+
+        # validate multicolored
+        if np.min(image) == np.max(image):
+            print("The image must have multiple colors")
+            return
+
+        all_colors = image.flatten()
+        total_weight = len(all_colors)
+        least_variance = -1
+        least_variance_threshold = -1
+
+        # create an array of all possible threshold values which we want to loop through
+        color_thresholds = np.arange(np.min(image) + nbins, np.max(image) - nbins, nbins)
+
+        # loop through the thresholds to find the one with the least within class variance
+        for color_threshold in color_thresholds:
+            bg_pixels = all_colors[all_colors < color_threshold]
+            weight_bg = len(bg_pixels) / total_weight
+            variance_bg = np.var(bg_pixels)
+
+            fg_pixels = all_colors[all_colors >= color_threshold]
+            weight_fg = len(fg_pixels) / total_weight
+            variance_fg = np.var(fg_pixels)
+
+            within_class_variance = weight_fg * variance_fg + weight_bg * variance_bg
+            if least_variance == -1 or least_variance > within_class_variance:
+                least_variance = within_class_variance
+                least_variance_threshold = color_threshold
+
+        res = image > least_variance_threshold
+
+        return res
+
+
+
 
 
 class region_growing:
@@ -500,7 +588,7 @@ class Clustering:
         multiplot("Segmentation with K-means clustering",{"Origin":self.img,f"K-means with k={k}":result_image})
 
 
-class morphological():
+class Morphological():
     """
         Image segmentation using morphological wartersheed method
 
